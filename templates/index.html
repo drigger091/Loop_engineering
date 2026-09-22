@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Harness</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-robot" style="font-size: 24px;"></i>
+                <div>
+                    <h2>Agent Harness</h2>
+                    <span>Test • Observe • Improve</span>
+                </div>
+            </div>
+            <nav class="nav-menu">
+                <a href="#" class="active" id="nav-chat"><i class="fa-solid fa-comment-dots"></i> Chat</a>
+                <a href="#"><i class="fa-solid fa-chart-line"></i> Agent Dashboard</a>
+                <a href="#"><i class="fa-solid fa-code-branch"></i> Traces</a>
+                <a href="#"><i class="fa-regular fa-square-check"></i> Evaluations</a>
+                <a href="#" id="nav-logs"><i class="fa-solid fa-file-lines"></i> Logs</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content (Chat) -->
+        <main class="main-content" id="chat-view">
+            <header class="top-bar">
+                <div class="header-title">
+                    <div class="icon-circle">
+                        <i class="fa-solid fa-comment"></i>
+                    </div>
+                    <div>
+                        <h1>Chat with Your AI Agents</h1>
+                        <p>Ask a question and see which agent handles it, with full trace and insights.</p>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="status-indicator">
+                        <span class="status-dot"></span> Agents Online
+                    </div>
+                    <div class="user-profile">
+                        <div class="avatar">DB</div>
+                        <span>Dipayan <i class="fa-solid fa-chevron-down" style="font-size:10px; margin-left: 5px;"></i></span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="chat-container" id="chat-container">
+                <!-- Initial welcome message can go here if needed -->
+            </div>
+
+            <div class="chat-input-area">
+                <div class="input-wrapper">
+                    <button class="attachment-btn"><i class="fa-solid fa-paperclip"></i></button>
+                    <input type="text" id="chat-input" placeholder="Type your message here..." autocomplete="off">
+                    <button id="send-btn" class="send-btn"><i class="fa-solid fa-paper-plane"></i> Send</button>
+                </div>
+                <div class="suggestions">
+                    <button class="suggestion-chip">How do I reset my password?</button>
+                    <button class="suggestion-chip">What is the price of the Pro plan?</button>
+                    <button class="suggestion-chip">My API login is crashing</button>
+                    <button class="suggestion-chip">I want a refund</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Logs View -->
+        <main class="main-content" id="logs-view" style="display: none; flex-direction: column;">
+            <header class="top-bar">
+                <div class="header-title">
+                    <div class="icon-circle" style="background-color: #f3f4f6; color: #4b5563;">
+                        <i class="fa-solid fa-file-lines"></i>
+                    </div>
+                    <div>
+                        <h1>System Logs</h1>
+                        <p>Complete traces of all agent executions during this session.</p>
+                    </div>
+                </div>
+            </header>
+            <div class="logs-container" id="logs-container">
+                <div class="empty-logs" id="empty-logs">No logs recorded yet. Start a chat to see traces!</div>
+            </div>
+        </main>
+
+        <!-- Right Sidebar (Agent View) -->
+        <aside class="right-sidebar">
+            <div class="tabs">
+                <button class="tab active">Agent View</button>
+                <button class="tab">Trace</button>
+                <button class="tab">Metrics</button>
+            </div>
+            
+            <div class="right-content">
+                <div class="section-header">
+                    <div class="agent-title-row">
+                        <h3>Agent in Action</h3>
+                        <div class="agent-status" id="active-agent-status">
+                            <span class="status-dot"></span> <span id="agent-name-display">Waiting...</span> <span class="badge">Active</span>
+                        </div>
+                    </div>
+                    <div class="total-time">
+                        Total Time<br><strong id="total-time-display">-</strong>
+                    </div>
+                </div>
+
+                <div class="agent-flow">
+                    <div class="flow-step">
+                        <div class="flow-icon"><i class="fa-regular fa-user"></i></div>
+                        <span>User Query</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-right flow-arrow"></i>
+                    <div class="flow-step active-flow">
+                        <div class="flow-icon active-icon"><i class="fa-solid fa-robot"></i></div>
+                        <span id="flow-agent-name">Agent</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-right flow-arrow"></i>
+                    <div class="flow-step">
+                        <div class="flow-icon"><i class="fa-solid fa-wrench"></i></div>
+                        <span>Processing</span>
+                    </div>
+                    <i class="fa-solid fa-arrow-right flow-arrow"></i>
+                    <div class="flow-step">
+                        <div class="flow-icon"><i class="fa-solid fa-check"></i></div>
+                        <span>Response</span>
+                    </div>
+                </div>
+
+                <div class="current-step-card">
+                    <h4>Current Step</h4>
+                    <div class="step-content">
+                        <div class="step-icon">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                        </div>
+                        <div class="step-details">
+                            <h5 id="current-step-title">Waiting for query</h5>
+                            <p id="current-step-desc">Ready to process user input...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="trace-section">
+                    <h4>Agent Trace (Live)</h4>
+                    <ul class="trace-timeline" id="trace-list">
+                        <!-- Traces injected here -->
+                    </ul>
+                </div>
+
+                <div class="metrics-section">
+                    <h4>Live Metrics (Current Session)</h4>
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-title"><i class="fa-solid fa-bolt"></i> Latency</div>
+                            <div class="metric-val" id="metric-latency">-</div>
+                            <div class="metric-trend pos"><i class="fa-solid fa-arrow-down"></i> 18%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-title"><i class="fa-solid fa-database"></i> Token Usage</div>
+                            <div class="metric-val" id="metric-tokens">-</div>
+                            <div class="metric-trend pos"><i class="fa-solid fa-arrow-down"></i> 12%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-title"><i class="fa-solid fa-circle-check"></i> Success Rate</div>
+                            <div class="metric-val">99%</div>
+                            <div class="metric-trend pos"><i class="fa-solid fa-arrow-up"></i> 2%</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-title"><i class="fa-solid fa-dollar-sign"></i> Cost (USD)</div>
+                            <div class="metric-val" id="metric-cost">-</div>
+                            <div class="metric-trend pos"><i class="fa-solid fa-arrow-down"></i> 25%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="activity-section">
+                    <h4>Agent Activity</h4>
+                    <div class="activity-legend">
+                        <span><span class="dot purple"></span> Technical</span>
+                        <span><span class="dot blue"></span> Billing</span>
+                        <span><span class="dot green"></span> General</span>
+                        <span><span class="dot orange"></span> Guardrail</span>
+                        <span><span class="dot red"></span> Reviewer</span>
+                    </div>
+                    <div class="activity-bars">
+                         <div class="bar purple" style="width: 25%"></div>
+                         <div class="bar blue" style="width: 25%"></div>
+                         <div class="bar green" style="width: 20%"></div>
+                         <div class="bar orange" style="width: 15%"></div>
+                         <div class="bar red" style="width: 15%"></div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>

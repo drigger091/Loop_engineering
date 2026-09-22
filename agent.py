@@ -3,12 +3,16 @@ from dotenv import load_dotenv
 # pyrefly: ignore [missing-import]
 from langchain_groq import ChatGroq
 
-MODEL_NAME = "openai/gpt-oss-20b"
+MAIN_MODEL_NAME = "openai/gpt-oss-20b"
+OTHER_MODEL_NAME = "openai/gpt-oss-safeguard-20b"
 load_dotenv()
 
 def get_llm():
 
-    return ChatGroq(model =MODEL_NAME,temperature = 0.2, api_key=os.getenv("GROQ_API_KEY"))
+    return ChatGroq(model =MAIN_MODEL_NAME,temperature = 0.2, api_key=os.getenv("GROQ_API_KEY"))
+
+def get_small_llm():
+    return ChatGroq(model =OTHER_MODEL_NAME,temperature = 0.2, api_key=os.getenv("GROQ_API_KEY"))
 
 
 # llm = get_llm()
@@ -113,8 +117,9 @@ def review_agent(question:str,draft :str)->str:
     Your Job
     - check the draft answer for 1) clarity 2) relevance 3) unsafe requets for passwords /card numbers, 4) unsupported gurrantes 5) uncessary complexity
 
-    rewrite the answers if needed 
-    keep the final answer concise and beginner friendly
+    rewrite the answers if needed.
+    If no changes are needed, return the original draft exactly as is.
+    keep the final answer concise and beginner friendly.
 
     orignal customer question:
     {question}
@@ -122,6 +127,6 @@ def review_agent(question:str,draft :str)->str:
     agents draft:
     {draft}
 
-    Return only the revised answer , nothing else
+    Return the final revised answer. Do not return empty.
     """
     return llm.invoke(prompt).content  
