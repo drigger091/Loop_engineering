@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -21,7 +22,7 @@
             </div>
             <nav class="nav-menu">
                 <a href="#" class="active" id="nav-chat"><i class="fa-solid fa-comment-dots"></i> Chat</a>
-                <a href="#"><i class="fa-solid fa-chart-line"></i> Agent Dashboard</a>
+                <a href="#" id="nav-dashboard"><i class="fa-solid fa-chart-line"></i> Agent Dashboard</a>
                 <a href="#"><i class="fa-solid fa-code-branch"></i> Traces</a>
                 <a href="#"><i class="fa-regular fa-square-check"></i> Evaluations</a>
                 <a href="#" id="nav-logs"><i class="fa-solid fa-file-lines"></i> Logs</a>
@@ -85,6 +86,106 @@
             </header>
             <div class="logs-container" id="logs-container">
                 <div class="empty-logs" id="empty-logs">No logs recorded yet. Start a chat to see traces!</div>
+            </div>
+        </main>
+
+        <!-- Dashboard View -->
+        <main class="main-content" id="dashboard-view" style="display: none; flex-direction: column;">
+            <header class="top-bar">
+                <div class="header-title">
+                    <div class="icon-circle" style="background-color: #f3f4f6; color: #4b5563;">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <h1>Agent Dashboard</h1>
+                        <p>Performance metrics and evaluations across the multi-agent system.</p>
+                    </div>
+                </div>
+            </header>
+            <div class="dashboard-container" style="padding: 30px; overflow-y: auto; flex: 1;">
+                
+                <h3 class="dash-section-title">System-Wide Performance</h3>
+                <div class="dash-grid">
+                    <div class="dash-card">
+                        <div class="dash-card-title">Router Accuracy</div>
+                        <div class="dash-card-val">98.4%</div>
+                        <div class="dash-progress-bar"><div class="dash-progress-fill green" style="width: 98.4%"></div></div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-card-title">Guardrail Block Accuracy</div>
+                        <div class="dash-card-val">99.1%</div>
+                        <div class="dash-progress-bar"><div class="dash-progress-fill green" style="width: 99.1%"></div></div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-card-title">Successful Generation</div>
+                        <div class="dash-card-val" id="metric-success-rate">96.5%</div>
+                        <div class="dash-progress-bar"><div class="dash-progress-fill blue" id="metric-success-bar" style="width: 96.5%"></div></div>
+                    </div>
+                </div>
+
+                <div class="dash-charts-grid">
+                    <div class="dash-card">
+                        <div class="dash-card-title">Queries Handled Over Time</div>
+                        <div class="chart-container">
+                            <canvas id="trafficChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="dash-card">
+                        <div class="dash-card-title">Agent Workload Distribution</div>
+                        <div class="chart-container">
+                            <canvas id="workloadChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="dash-section-title" style="margin-top: 40px;">Individual Agent Dashboards</h3>
+                <div class="agent-dash-grid">
+                    <div class="agent-dash-card">
+                        <div class="agent-header">
+                            <div class="dot purple"></div>
+                            <h4>Technical Agent</h4>
+                        </div>
+                        <div class="agent-stats">
+                            <div class="stat"><span class="label">Avg Latency:</span> <span class="val">2.4s</span></div>
+                            <div class="stat"><span class="label">Avg Tokens:</span> <span class="val">340</span></div>
+                            <div class="stat"><span class="label">Resolution Rate:</span> <span class="val">94%</span></div>
+                        </div>
+                    </div>
+                    <div class="agent-dash-card">
+                        <div class="agent-header">
+                            <div class="dot blue"></div>
+                            <h4>Billing Agent</h4>
+                        </div>
+                        <div class="agent-stats">
+                            <div class="stat"><span class="label">Avg Latency:</span> <span class="val">1.8s</span></div>
+                            <div class="stat"><span class="label">Avg Tokens:</span> <span class="val">210</span></div>
+                            <div class="stat"><span class="label">Resolution Rate:</span> <span class="val">98%</span></div>
+                        </div>
+                    </div>
+                    <div class="agent-dash-card">
+                        <div class="agent-header">
+                            <div class="dot green"></div>
+                            <h4>General Agent</h4>
+                        </div>
+                        <div class="agent-stats">
+                            <div class="stat"><span class="label">Avg Latency:</span> <span class="val">1.2s</span></div>
+                            <div class="stat"><span class="label">Avg Tokens:</span> <span class="val">150</span></div>
+                            <div class="stat"><span class="label">Resolution Rate:</span> <span class="val">99%</span></div>
+                        </div>
+                    </div>
+                    <div class="agent-dash-card">
+                        <div class="agent-header">
+                            <div class="dot red"></div>
+                            <h4>Reviewer Agent</h4>
+                        </div>
+                        <div class="agent-stats">
+                            <div class="stat"><span class="label">Avg Latency:</span> <span class="val">1.5s</span></div>
+                            <div class="stat"><span class="label">Avg Tokens:</span> <span class="val">280</span></div>
+                            <div class="stat"><span class="label">Rewrite Rate:</span> <span class="val">22%</span></div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </main>
 
@@ -197,6 +298,6 @@
             </div>
         </aside>
     </div>
-    <script src="/static/script.js"></script>
+    <script src="/static/script.js?v=2"></script>
 </body>
 </html>

@@ -68,8 +68,23 @@ document.addEventListener('DOMContentLoaded', () => {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
+    const flowSteps = document.querySelectorAll('.flow-step');
+    const flowIcons = document.querySelectorAll('.flow-icon');
+
+    function setActiveStep(stepIndex) {
+        flowSteps.forEach((step, i) => {
+            if (i === stepIndex) {
+                step.classList.add('active-flow');
+                flowIcons[i].classList.add('active-icon');
+            } else {
+                step.classList.remove('active-flow');
+                flowIcons[i].classList.remove('active-icon');
+            }
+        });
+    }
+
     function updateRightSidebar(traceArray, durationSecs) {
-        // Update trace list
+        // ... (rest of the logic remains unchanged until we set active step)
         traceList.innerHTML = '';
         traceArray.forEach(traceItem => {
             const li = document.createElement('li');
@@ -80,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
             traceList.appendChild(li);
         });
 
-        // Determine agent name from trace if possible
         let agentName = "General Agent";
         const routeTrace = traceArray.find(t => t.includes("assigned to"));
         if(routeTrace) {
@@ -97,12 +111,14 @@ document.addEventListener('DOMContentLoaded', () => {
         totalTimeDisplay.innerText = durationSecs.toFixed(1) + "s";
         metricLatency.innerText = durationSecs.toFixed(1) + "s";
         
-        // Mock tokens based on text length for demo purposes
         const mockTokens = Math.floor(Math.random() * 500) + 200;
         metricTokens.innerText = mockTokens;
         
         const mockCost = (mockTokens * 0.000002).toFixed(4);
         metricCost.innerText = "$" + mockCost;
+        
+        // Final Step: Response
+        setActiveStep(3);
     }
 
     function resetSidebarToPending() {
@@ -117,6 +133,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="trace-desc">Initiating graph execution</div>
             </li>
         `;
+        
+        // Start Step: User Query
+        setActiveStep(0);
+        
+        // Simulate traversal while waiting for backend
+        setTimeout(() => setActiveStep(1), 500); // Agent
+        setTimeout(() => setActiveStep(2), 1500); // Processing
     }
 
     async function handleSend(text) {
@@ -187,21 +210,45 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // View Switching Logic
+    let chartsRendered = false;
+    
     if(navChat && navLogs) {
+        const navDashboard = document.getElementById('nav-dashboard');
+        const dashboardView = document.getElementById('dashboard-view');
+
         navChat.addEventListener('click', (e) => {
             e.preventDefault();
             navChat.classList.add('active');
             navLogs.classList.remove('active');
+            navDashboard.classList.remove('active');
             chatView.style.display = 'flex';
             logsView.style.display = 'none';
+            dashboardView.style.display = 'none';
+        });
+
+        navDashboard.addEventListener('click', (e) => {
+            e.preventDefault();
+            navDashboard.classList.add('active');
+            navChat.classList.remove('active');
+            navLogs.classList.remove('active');
+            chatView.style.display = 'none';
+            logsView.style.display = 'none';
+            dashboardView.style.display = 'flex';
+            
+            if(!chartsRendered) {
+                renderDashboardCharts();
+                chartsRendered = true;
+            }
         });
 
         navLogs.addEventListener('click', (e) => {
             e.preventDefault();
             navLogs.classList.add('active');
             navChat.classList.remove('active');
+            navDashboard.classList.remove('active');
             chatView.style.display = 'none';
             logsView.style.display = 'flex';
+            dashboardView.style.display = 'none';
             renderLogs();
         });
     }
@@ -231,6 +278,87 @@ document.addEventListener('DOMContentLoaded', () => {
                 </ul>
             `;
             logsContainer.appendChild(card);
+        });
+    }
+
+    async function renderDashboardCharts() {
+        const trafficCtx = document.getElementById('trafficChart');
+        const workloadCtx = document.getElementById('workloadChart');
+        if (!trafficCtx || !workloadCtx) return;
+
+        let data = {
+            total_queries: 0,
+            success_rate: 0,
+            workload: { technical: 0, billing: 0, general: 0 },
+            traffic: {}
+        };
+
+        try {
+            const res = await fetch('/api/metrics');
+            if (res.ok) {
+                data = await res.json();
+            }
+        } catch(e) {
+            console.error("Failed to fetch metrics", e);
+        }
+
+        // Update Success Rate UI
+        const successRateEl = document.getElementById('metric-success-rate');
+        const successBarEl = document.getElementById('metric-success-bar');
+        if (successRateEl && successBarEl) {
+            successRateEl.innerText = data.success_rate + '%';
+            successBarEl.style.width = data.success_rate + '%';
+        }
+
+        // Line Chart for Queries Over Time
+        const trafficLabels = Object.keys(data.traffic).length > 0 ? Object.keys(data.traffic) : ['No Data'];
+        const trafficValues = Object.keys(data.traffic).length > 0 ? Object.values(data.traffic) : [0];
+
+        new Chart(trafficCtx, {
+            type: 'line',
+            data: {
+                labels: trafficLabels,
+                datasets: [{
+                    label: 'Total Queries',
+                    data: trafficValues,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#e5e7eb' }, ticks: { stepSize: 1 } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+        // Doughnut Chart for Agent Workload
+        const workload = data.workload;
+        new Chart(workloadCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Technical', 'Billing', 'General'],
+                datasets: [{
+                    data: [workload.technical || 0, workload.billing || 0, workload.general || 0],
+                    backgroundColor: ['#8b5cf6', '#3b82f6', '#10b981'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+                }
+            }
         });
     }
 });
