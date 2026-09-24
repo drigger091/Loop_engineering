@@ -105,11 +105,11 @@ def router_node(state: SupportState):
     question = state["question"]
     lower_question = question.lower()
 
-    # Deterministic routing based on keywords
-    if any(kw in lower_question for kw in ["billing", "payment", "refund", "credit card", "price", "plan"]):
+    # Deterministic routing based on strict keywords
+    if any(kw in lower_question for kw in ["payment", "refund", "credit card", "cancel subscription"]):
         route = "billing"
         trace_msg = "Deterministic router assigned to: billing"
-    elif any(kw in lower_question for kw in ["bug", "error", "install", "login", "api", "setup", "crash"]):
+    elif any(kw in lower_question for kw in ["install", "login", "crash"]):
         route = "technical"
         trace_msg = "Deterministic router assigned to: technical"
     else:
