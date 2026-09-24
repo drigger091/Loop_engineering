@@ -1,9 +1,14 @@
-from typing import TypedDict, Literal
+import operator
+from typing import TypedDict, Literal, Annotated, Sequence
 
 from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import ToolNode
+from langchain_core.messages import BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import PromptTemplate
+
+from tools import math_tool, web_search, web_scraper, fetch_recent_executions, create_support_ticket, check_refund_status
 
 from agent import (
     technical_agent,
@@ -16,14 +21,13 @@ from agent import (
 
 
 class SupportState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], operator.add]
     question: str
     route: str
-    agent_type: str
-    draft: str
     final_answer: str
     intent: str
     blocked: bool
-    trace: list[str]
+    trace: Annotated[list[str], operator.add]
 
 
 def guard_rail_mode_non_LLM(state: SupportState):
@@ -36,17 +40,16 @@ def guard_rail_mode_non_LLM(state: SupportState):
     dangerous_phrases = ["give me your password", "steal_password", "cancel_subscription", "hack"]
 
     blocked = any(phrase in question for phrase in dangerous_phrases)
-    trace = state.get("trace", []) + ["Guard Rail checked the request"]
 
     if blocked:
        return {
         "blocked": True,
         "intent": "malicious",
         "final_answer": "I can't help with the request involving malicious intent and other illegal activities",
-        "trace": trace,
+        "trace": ["Guard Rail checked the request"],
        }
 
-    return {"blocked": False, "trace": trace}
+    return {"blocked": False, "trace": ["Guard Rail checked the request"]}
 
 
 class GuardRailResult(BaseModel):
@@ -70,17 +73,15 @@ def guard_rail_mode_LLM(state: SupportState):
     chain = prompt | llm | parser
     response = chain.invoke({"question": question})
     
-    trace = state.get("trace", []) + ["LLM Guard Rail checked the request"]
-    
     if response.intent == "malicious":
        return {
         "blocked": True,
         "intent": "malicious",
         "final_answer": "I can't help with requests involving malicious intent or other illegal activities.",
-        "trace": trace,
+        "trace": ["LLM Guard Rail checked the request"],
        }
     
-    return {"blocked": False, "intent": "safe", "trace": trace}
+    return {"blocked": False, "intent": "safe", "trace": ["LLM Guard Rail checked the request"]}
 
 
 def after_guardrail(state: SupportState) -> Literal["next", "end"]:
@@ -103,15 +104,14 @@ def router_node(state: SupportState):
     """
     question = state["question"]
     lower_question = question.lower()
-    trace = state.get("trace", [])
 
     # Deterministic routing based on keywords
     if any(kw in lower_question for kw in ["billing", "payment", "refund", "credit card", "price", "plan"]):
         route = "billing"
-        trace.append("Deterministic router assigned to: billing")
+        trace_msg = "Deterministic router assigned to: billing"
     elif any(kw in lower_question for kw in ["bug", "error", "install", "login", "api", "setup", "crash"]):
         route = "technical"
-        trace.append("Deterministic router assigned to: technical")
+        trace_msg = "Deterministic router assigned to: technical"
     else:
         # LLM-based routing
         llm = get_small_llm()
@@ -126,9 +126,9 @@ def router_node(state: SupportState):
         chain = prompt | llm | parser
         response = chain.invoke({"question": question})
         route = response.route
-        trace.append(f"LLM router assigned to: {route}")
+        trace_msg = f"LLM router assigned to: {route}"
         
-    return {"route": route, "trace": trace}
+    return {"route": route, "trace": [trace_msg]}
 
 
 def choose_agent(state: SupportState) -> Literal["technical_agent", "billing_agent", "general_agent"]:
@@ -140,23 +140,21 @@ def choose_agent(state: SupportState) -> Literal["technical_agent", "billing_age
     
     return "general_agent"
 
-
-def create_agent_node(agent_func, agent_name: str):
-    """Factory function to create agent nodes to avoid code duplication."""
-    def node(state: SupportState):
-        answer = agent_func(state["question"])
-        return {"draft": answer, "trace": state.get("trace", []) + [f"{agent_name} agent drafted the answer"]}
-    return node
-
-
-technical_node = create_agent_node(technical_agent, "technical")
-billing_node = create_agent_node(billing_agent, "billing")
-general_node = create_agent_node(general_agent, "general")
+def should_continue(state: SupportState) -> Literal["tools", "reviewer"]:
+    """Determines whether to execute a tool or go to the reviewer."""
+    messages = state["messages"]
+    last_message = messages[-1]
+    
+    # If the LLM returned tool calls, route to the tools node
+    if hasattr(last_message, 'tool_calls') and last_message.tool_calls:
+        return "tools"
+    
+    return "reviewer"
 
 
-def reviewer_node(state: SupportState):
-    final_answer = review_agent(question=state["question"], draft=state["draft"])
-    return {"final_answer": final_answer, "trace": state.get("trace", []) + ["reviewer agent reviewed the answer"]}
+# Set up tools for LangGraph prebuilt ToolNode
+all_tools = [math_tool, web_search, web_scraper, fetch_recent_executions, create_support_ticket, check_refund_status]
+tool_node = ToolNode(all_tools)
 
 
 # Graph Construction
@@ -165,10 +163,11 @@ builder = StateGraph(SupportState)
 builder.add_node("guard_rail_non_LLM", guard_rail_mode_non_LLM)
 builder.add_node("guard_rail", guard_rail_mode_LLM)
 builder.add_node("router", router_node)
-builder.add_node("technical_agent", technical_node)
-builder.add_node("billing_agent", billing_node)
-builder.add_node("general_agent", general_node)
-builder.add_node("reviewer", reviewer_node)
+builder.add_node("technical_agent", technical_agent)
+builder.add_node("billing_agent", billing_agent)
+builder.add_node("general_agent", general_agent)
+builder.add_node("tools", tool_node)
+builder.add_node("reviewer", review_agent)
 
 builder.add_edge(START, "guard_rail_non_LLM")
 
@@ -194,39 +193,51 @@ builder.add_conditional_edges(
     }
 )
 
-builder.add_edge("technical_agent", "reviewer")
-builder.add_edge("billing_agent", "reviewer")
-builder.add_edge("general_agent", "reviewer")
+# Agents route to either tools (if they requested a tool call) or reviewer
+builder.add_conditional_edges("technical_agent", should_continue, {"tools": "tools", "reviewer": "reviewer"})
+builder.add_conditional_edges("billing_agent", should_continue, {"tools": "tools", "reviewer": "reviewer"})
+builder.add_conditional_edges("general_agent", should_continue, {"tools": "tools", "reviewer": "reviewer"})
+
+# Tool node routes back to the active agent to interpret the tool result
+def route_tool_back(state: SupportState) -> str:
+    return state["route"] + "_agent"
+
+builder.add_conditional_edges("tools", route_tool_back, {
+    "technical_agent": "technical_agent",
+    "billing_agent": "billing_agent",
+    "general_agent": "general_agent"
+})
 
 builder.add_edge("reviewer", END)
 
 graph = builder.compile()
 
-def run_support_system(question: str):
-    initial_state = {"question": question, "trace": []}
-    result = graph.invoke(initial_state)
-    return result
 
-
-
-
-def run_support_system(question:str)->str:
-    intial_state:SupportState ={
-        "question":question,
-        "route":"",
-        "draft":"",
+def run_support_system(question: str) -> dict:
+    initial_state: SupportState = {
+        "question": question,
+        "messages": [HumanMessage(content=question)],
+        "route": "",
         "final_answer": "",
         "blocked": False,
         "intent": "",
         "trace": []
-        
     }
 
-    result = graph.invoke(intial_state)
-    return{
-        "route":result.get("route","blocked"),
-        "answer":result.get("final_answer"),
-        "trace":result.get("trace",[])
-        
-        
+    result = graph.invoke(initial_state)
+    
+    # Extract used tools from the message history
+    used_tools = []
+    if "messages" in result:
+        for msg in result["messages"]:
+            if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    agent_name = result.get("route", "unknown") + "_agent"
+                    used_tools.append(f"{agent_name} used '{tc['name']}'")
+
+    return {
+        "route": result.get("route", "blocked"),
+        "answer": result.get("final_answer"),
+        "trace": result.get("trace", []),
+        "used_tools": used_tools
     }

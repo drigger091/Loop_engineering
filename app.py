@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import logging
 from tinydb import TinyDB
 from datetime import datetime
+import re
 
 class ChatRequest(BaseModel):
     question: str
@@ -64,18 +65,21 @@ async def chat_endpoint(req: ChatRequest):
     agent_logger.info(f"Question: {req.question} | Iterations: {iterations} | Route: {result.get('route', 'unknown')}")
     
     # Save to NoSQL Database
+    used_tools = result.get("used_tools", [])
     logs_table.insert({
         "timestamp": datetime.now().isoformat(),
         "question": req.question,
         "final_answer": final_answer,
         "route": result.get("route", ""),
         "iterations": iterations,
-        "trace": trace_array
+        "trace": trace_array,
+        "used_tools": used_tools
     })
         
     return {
         "final_answer": final_answer,
         "trace": trace_array,
+        "used_tools": used_tools,
         "iterations": iterations
     }
 
@@ -92,14 +96,24 @@ async def get_metrics():
     successful = 0
     workload = defaultdict(int)
     traffic = defaultdict(int)
+    tool_usage = defaultdict(int)
+    tool_successes = defaultdict(int)
     
     for r in records:
-        if r.get("final_answer"):
+        is_success = bool(r.get("final_answer"))
+        if is_success:
             successful += 1
             
         route = r.get("route", "unknown")
         if route:
             workload[route] += 1
+            
+        for tool_log in r.get("used_tools", []):
+            match = re.search(r"used '([^']+)'", tool_log)
+            tool_name = match.group(1) if match else tool_log
+            tool_usage[tool_name] += 1
+            if is_success:
+                tool_successes[tool_name] += 1
             
         ts = r.get("timestamp")
         if ts:
@@ -117,11 +131,17 @@ async def get_metrics():
         if r not in workload:
             workload[r] = 0
             
+    tool_accuracy = {}
+    for tool, usage in tool_usage.items():
+        tool_accuracy[tool] = round((tool_successes[tool] / usage) * 100, 1)
+
     return {
         "total_queries": total,
         "success_rate": success_rate,
         "workload": dict(workload),
-        "traffic": dict(traffic)
+        "traffic": dict(traffic),
+        "tool_usage": dict(tool_usage),
+        "tool_accuracy": tool_accuracy
     }
 
 

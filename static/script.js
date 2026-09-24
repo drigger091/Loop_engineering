@@ -290,7 +290,9 @@ document.addEventListener('DOMContentLoaded', () => {
             total_queries: 0,
             success_rate: 0,
             workload: { technical: 0, billing: 0, general: 0 },
-            traffic: {}
+            traffic: {},
+            tool_usage: {},
+            tool_accuracy: {}
         };
 
         try {
@@ -360,5 +362,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+
+        // Tool Charts
+        const toolUsageCtx = document.getElementById('toolUsageChart');
+        const toolAccuracyCtx = document.getElementById('toolAccuracyChart');
+        
+        const toolNames = Object.keys(data.tool_usage || {});
+        const toolUsageVals = Object.values(data.tool_usage || {});
+        const toolAccuracyVals = toolNames.map(name => data.tool_accuracy[name] || 0);
+
+        if (toolUsageCtx) {
+            new Chart(toolUsageCtx, {
+                type: 'bar',
+                data: {
+                    labels: toolNames.length > 0 ? toolNames : ['No Data'],
+                    datasets: [{
+                        label: 'Uses',
+                        data: toolUsageVals.length > 0 ? toolUsageVals : [0],
+                        backgroundColor: '#8b5cf6'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        if (toolAccuracyCtx) {
+            new Chart(toolAccuracyCtx, {
+                type: 'bar',
+                data: {
+                    labels: toolNames.length > 0 ? toolNames : ['No Data'],
+                    datasets: [{
+                        label: 'Accuracy (%)',
+                        data: toolAccuracyVals.length > 0 ? toolAccuracyVals : [0],
+                        backgroundColor: '#10b981'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { max: 100, beginAtZero: true } } }
+            });
+        }
     }
 });

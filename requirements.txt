@@ -8,3 +8,6 @@ langchain-openai == 1.5.2
 langchain-core
 langchain-community
 tinydb
+requests
+beautifulsoup4
+ddgs
